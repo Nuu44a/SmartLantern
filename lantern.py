@@ -66,28 +66,32 @@ def parse_command(bb):
     return result
 
 
-async def tcp_echo_client(status='OFF'):
+async def tcp_echo_client():
     reader, writer = await asyncio.open_connection(SERVER_ADDRESS, SERVER_PORT)
-    print(f'{status}')
-    writer.write(status.encode())
-    await writer.drain()
-    addr = writer.get_extra_info('peername')
-    print(f'Esteblished conection with {addr!r}, status is {status!r}')
-  
-    while True:
-        data = await reader.read(10)
-        # parse_command(data)
-        status = parse_command(data)
-        
-        writer.write(status.encode())
-        await writer.drain()
     
-        print(f'Status: {status}')
-        if status == 'OFF':
-            break
+    addr = writer.get_extra_info('peername')
+    print(f'Esteblished conection with {addr!r}')
 
+    while True:
+        # addr = writer.get_extra_info('peername')
+        head =  await reader.read(3)
+                
+        command, length = struct.unpack('>bh', head)
+        # command, length = data[0], data[1:]
+        if length != 0:
+            data = await reader.read(length)
+        else:
+            data = b''
+        # print(f'{command!r}, {length!r}, {head+data!r}')
+        
+        status = parse_command(head + data)
+            
+        print(f'Status: {status}')
+        # if status == 'OFF':
+        #     break
+    
     print('Close the connection')
     writer.close()
     
 
-asyncio.run(tcp_echo_client('OFF'))
+asyncio.run(tcp_echo_client())
