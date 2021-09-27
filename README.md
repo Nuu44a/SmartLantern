@@ -2,14 +2,14 @@
 SmartLantern controlled by TCP and a simple server for generate and send commands
 
 Package consist from 2 files:
-test_server.py
-lantern.py
+- **test_server.py**
+- **lantern.py**
 
-Work checked on Python 3.8.7 and standart modules: asyncio, struct, random
+Work checked on **Python 3.8.7** and standart modules: **asyncio, struct, random**
 
-To work whith these scripts need just two terminal windows:
-one for server, and another for lantern. 
-First start server with command "python test_server.py", and then start client whith command "python lantern.py"
+To work whith these scripts need just two terminal windows: one for server, and another for lantern. 
+
+First start server with command **"python test_server.py"**, and then start client whith command **"python lantern.py"**
 
 After the established connection, server will construct a pack of commands and send it to client, and waiting user command: 1 - continue, 0 - end and close connection.
 Client whill recieve and parse commands, and print in terminal window reaction.
