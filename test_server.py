@@ -46,15 +46,15 @@ class EchoServerProtocol(asyncio.Protocol):
         
         flag = 1
         while flag:
-            flag = int(input('Send pack of commands to client - 1, exit - 0 -> '))
-            num = random.randint(5, 10)
+            flag = int(input('Send commands - 1, exit - 0 -> '))
+            num = random.randint(5, 10)  # сколько команд в пачке
             tlv = gen_tlv(num)
             sock.sendall(tlv)
             
             if not flag:
                 break
         
-        print('Close the client socket')
+        print('Server closed conection')
         self.transport.close()
 
 
@@ -64,7 +64,7 @@ async def main():
 
     server = await loop.create_server(
         lambda: EchoServerProtocol(),
-        '127.0.0.1', 9999)
+        SERVER_ADDRESS, SERVER_PORT)
     
     addr = server.sockets[0].getsockname()
     print(f'Serving on {addr}')
@@ -77,4 +77,4 @@ async def main():
 try:
     asyncio.run(main())
 except KeyboardInterrupt:
-    print('ServerSHUTDOWN')
+    print('Server SHUTDOWN')

@@ -17,7 +17,7 @@ def color(rgb):
     print('Color chahged to ' + rgb)
     return rgb
 
-# functions to parse recieved commands
+# functions to check and start recieved commands
 def parse_on(bb):
     code, length = struct.unpack('>bh', bb)
     assert code == 0x12
@@ -51,7 +51,7 @@ COMMANDS = {
     0x20: parse_color,
     } 
 
-# parse recieved bytecode
+# parse bytecode of single TLV-packet
 def parse_command(bb):
     code = bb[0]
     result = 'SILENT'
@@ -60,38 +60,65 @@ def parse_command(bb):
     parse = COMMANDS.get(code)
         
     if parse is not None:
-        cmd = parse(bb)
+        # cmd = parse(bb)
         # result = exec(cmd)
-        result = cmd
+        result = parse(bb)
     return result
 
-
-async def tcp_echo_client():
-    reader, writer = await asyncio.open_connection(SERVER_ADDRESS, SERVER_PORT)
-    
-    addr = writer.get_extra_info('peername')
-    print(f'Esteblished conection with {addr!r}')
-
-    while True:
-        # addr = writer.get_extra_info('peername')
-        head =  await reader.read(3)
-                
+# Parse recieved bytecode to TLV-packets
+def parse_data(bb):
+    offset = 0
+    while offset < len(bb) and len(bb) > 3:
+        # head have length of 3 bytes. We need length of body
+        head = bb[offset : offset + 3]
         command, length = struct.unpack('>bh', head)
-        # command, length = data[0], data[1:]
-        if length != 0:
-            data = await reader.read(length)
-        else:
-            data = b''
-        # print(f'{command!r}, {length!r}, {head+data!r}')
-        
-        status = parse_command(head + data)
-            
-        print(f'Status: {status}')
-        # if status == 'OFF':
-        #     break
-    
-    print('Close the connection')
-    writer.close()
-    
 
-asyncio.run(tcp_echo_client())
+        # taking body with length 'length'        
+        if length != 0:
+            body = bb[offset + 3 : offset + 3 + length]
+        else:
+            body = b''
+
+        # stickign head and body and take to parse single TLV-packet
+        status = parse_command(head + body)
+        offset += 3 + length
+
+# describe tha actions of lantern in every situation
+class EchoClientProtocol(asyncio.Protocol):
+    def __init__(self, on_con_lost):
+        # self.message = message
+        self.on_con_lost = on_con_lost
+    
+    # on connection print status of connetion    
+    def connection_made(self, transport):
+        addr = transport.get_extra_info('peername')
+        print(f'Connected to {addr!r}')
+    
+    # on data receive we parse the data
+    def data_received(self, data):
+        # print(f'Data recieved: \n{data!r}')
+        parse_data(data)
+    
+    # on connection lost write message and set the Flag
+    def connection_lost(self, exc):
+        print('Server closed connection')
+        self.on_con_lost.set_result(True)
+
+# Start the client
+async def main():
+    loop = asyncio.get_running_loop()
+    
+    on_con_lost = loop.create_future()
+        
+    transport, protocol = await loop.create_connection(
+        lambda: EchoClientProtocol(on_con_lost), 
+        SERVER_ADDRESS, SERVER_PORT)
+    
+    # action on connection lost - close connection on lantern
+    try:
+        await on_con_lost
+    finally:
+        transport.close()
+        print('Lantern closed connection')
+
+asyncio.run(main())
