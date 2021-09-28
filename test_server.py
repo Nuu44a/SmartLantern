@@ -5,13 +5,17 @@ import random
 SERVER_ADDRESS = '127.0.0.1'
 SERVER_PORT = 9999
 
+
 # Генерируем команды на отправку клиенту
+# Словарь доступных команд
 dic = {1: 0x12, 2: 0x13, 3: 0x14, 4: 0x20}
 
+# Генератор цветов RGB
 def gc():
     x, y = -128, 127
     return random.randint(x, y)
 
+# Генератор случайных команд
 def gen_com():
     num = random.randint(1, 4)
     x = struct.pack('>b', dic[num])
@@ -30,39 +34,47 @@ def gen_tlv(ln=5):
         tlv = tlv + gen_com()
     return tlv
 
-# Отправляем клиенту команды
-async def handle_echo(reader, writer):
-    flag = True
-    
-    addr = writer.get_extra_info('peername')
-    print(f'Esteblished conection with {addr!r}')
-    
-    # В этом цикле отправляем команды клиенту
-    while True:
-        num = random.randint(5, 10)
-        tlv = gen_tlv(num)
+
+# Действия сервера при подключении клиента
+class EchoServerProtocol(asyncio.Protocol):
+    def connection_made(self, transport):
+        peername = transport.get_extra_info('peername')
+        print('Connection from {}'.format(peername))
         
-        # print(f'Send: {tlv!r}')
-        writer.write(tlv)
-        await writer.drain()
+        self.transport = transport
+        sock = transport.get_extra_info('socket')
         
-        # flag = int(input('Repeat - 1, exit - 0 -> '))
-        if not flag:
-            break
-        # break
+        flag = 1
+        while flag:
+            flag = int(input('Send pack of commands to client - 1, exit - 0 -> '))
+            num = random.randint(5, 10)
+            tlv = gen_tlv(num)
+            sock.sendall(tlv)
+            
+            if not flag:
+                break
         
-    # Прощаемся и закрываем соединение
-    print('Close the connection')
-    writer.close()
+        print('Close the client socket')
+        self.transport.close()
 
 
+# Запуск сервера
 async def main():
-    server = await asyncio.start_server(handle_echo, SERVER_ADDRESS, SERVER_PORT)
+    loop = asyncio.get_running_loop()
+
+    server = await loop.create_server(
+        lambda: EchoServerProtocol(),
+        '127.0.0.1', 9999)
     
     addr = server.sockets[0].getsockname()
     print(f'Serving on {addr}')
-    
+
     async with server:
         await server.serve_forever()
-    
-asyncio.run(main())
+
+
+# Обработка CTRL+C
+try:
+    asyncio.run(main())
+except KeyboardInterrupt:
+    print('ServerSHUTDOWN')
